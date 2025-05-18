@@ -28,7 +28,7 @@ Nos aparecerá la información para poder validar la API Key (fingerprint), dond
 
 ## Requisisitos
 
-Lo ideal es que la instalación la realicemos en algúna máquina virtual para simplificar el proceso y evitar posibles fallos con dependencias.
+Lo **ideal es que la instalación la realicemos en algún entorno virtual** para simplificar el proceso y evitar posibles fallos con dependencias.
 
 En mi ejemplo lo voy a dejar **en una máquina de Debian 12 montada en un contenedor LXC en proxmox sin nada instalado**, pero se puede dejar instalado:
 
@@ -152,32 +152,32 @@ Estos dos valores ahora mismo **no los tendríamos localizados**, y eso es algo 
 
     -   **imageId** (OCI_IMAGE_ID en nuestro script)
 
-    -   **availibityDomain** (OCI_AVAILIBITY_DOMAIN en nuestro script)
+    -   **availabilityDomain** (OCI_AVAILIBITY_DOMAIN en nuestro script)
 
 ![subnetID valor](/src/img/subnetId.png)
 ![imageID valor](/src/img/imageId.png)
-![availibityDomain valor](/src/img/availabilityDomain.png)
+![availabilityDomain valor](/src/img/availabilityDomain.png)
 
 
 #### Generar claves SSH pública y privada (para obtener valor OCI_SSH_PUBLIC_KEYS)
 
-Para poder acceder a la instancia una vez creada, será necesario que tengamos unas claves SSH pública y privada para poder acceder a él por SSH.
+Para poder acceder a la instancia una vez creada, **será necesario que tengamos unas claves SSH pública y privada para poder acceder a él por SSH.**
 
-Por ello, generaremos estos ficheros con el siguiente comando.
+Por ello, **generaremos estos ficheros** con el siguiente comando.
 
 `ssh-keygen -t rsa -b 4096 -C "oracle@enrico.es"`
 
 ![Generar claves SSH](/src/img/generar_claves_ssh.png)
 
-Y guardaremos el valor de la clave pública para usarla en la variable OCI_SSH_PUBLIC_KEYS.
+Y **guardaremos el valor de la clave pública** para usarla en la variable OCI_SSH_PUBLIC_KEYS.
 
 `cat ~/.ssh/id_rsa.pub`
 
-![Guardar clave pública](guardar_clave_publica.png)
+![Guardar clave pública](/src/img/guardar_clave_publica.png)
 
 #### Editar fichero .env
 
-Ya con todas las variables obtenidas, simplemente editaremos el fichero .env rellenándo las siguienes variables:
+Ya con todas las variables obtenidas, **simplemente editaremos el fichero .env** rellenándo las siguienes variables:
 
 - **OCI_REGION** --> Obtenido al generar una API Key.
 - **OCI_USER_ID** --> Obtenido al generar una API Key.
@@ -187,29 +187,62 @@ Ya con todas las variables obtenidas, simplemente editaremos el fichero .env rel
 - **OCI_SUBNET_ID** --> Obtenido de la petición por web con cURL.
 - **OCI_IMAGE_ID** --> Obtenido de la petición por web con cURL.
 - **OCI_AVAILABILITY_DOMAIN** --> Obtenido de la petición por web con cURL.
+- **OCI_SSH_PUBLIC_KEY** --> Obtenido al generar nuestros certificados SSH.
 
-![Fichero .env rellenado](fichero_env_rellenado.png)
+![Fichero .env rellenado](/src/img/fichero_env_rellenado.png)
 
 ### Lanzar el script de PHP
 
-Ya con todo generado, simplemente lanzaremos el script de php con la siguiente línea; el cuál probablemente nos dará un error de "Out of host capacity", indicándo que la petición API es correcta.
+Ya con todo generado, simplemente **lanzaremos el script de php con la siguiente línea**, el cuál probablemente nos dará un error de "Out of host capacity", indicándo que la petición API es correcta.
 
 `php ./index.php`
 
-![Petición API](peticion_php_api.png)
+![Petición API](/src/img/peticion_php_api.png)
 
+### Programar ejecución
 
+Ya teniendo este script configurado y validado que funcionaría, **solo quedaría dejar programado la ejecución de este script** para que lo reintente cada x minutos.
 
-Assigning public IP address
+Para ello, haremos lo siguiente:
 
-We are not doing this during the command run due to the default limitation (2 ephemeral addresses per compartment). That's how you can achieve this. When you'll succeed with creating an instance, open OCI Console, go to Instance Details -> Resources -> Attached VNICs by selecting it's name
+1. **Crearemos un fichero de log** para almacenar los intentos.
 
-Attached VNICs
+`touch oci.log`
 
-Then Resources -> IPv4 Addresses -> Edit
+2. **Encontraremos la ruta absoluta de nuestro repositorio** donde estaría el script con el siguiente comando.
 
-IPv4 Addresses
+`readlink -f oci.log`
 
-Choose ephemeral and click "Update"
+En nuestro ejemplo, **nuestra ruta absoluta será** `/root/oci-arm-host-capacity/`.
 
-Edit IP Address
+![Crear logs y ruta](/src/img/crear_log_y_ruta.png)
+
+3. **Editaremos crontab para que cada minuto se lance este script** y se guarde el resultado en el ficher de log.
+
+`crontab -e`
+
+4. **Agregaremos la siguiente línea**, utilizando las rutas absolutas para evitar problemas.
+
+`* * * * * /usr/bin/php /root/oci-arm-host-capacity/index.php >> /root/oci-arm-host-capacity/oci.log`
+
+![Configuración Crontab](/src/img/configurar_crontab.png)
+
+5. Estaría todo listo, **simplemente a esperar** hasta que nos diesen la instancia. 🙂
+
+## Pasos posteriores - Asignar IP Pública
+
+Este apartado **no se puede hacer mediante API por los límites que tiene.**
+
+Simplemente, teniendo ya la instancia creada en Oracle, nos iremos a **Details** -> **Resources** -> **Attached VNICs**
+
+#IMAGEN#
+
+Después iremos a **Resources** -> **IPv4 Addresses** -> **Edit**
+
+#IMAGEN#
+
+Elegiremos una **EPHEMERAL PUBLIC IP** y actualizaremos.
+
+#IMAGEN#
+
+Y de esta manera **podremos acceder a la instancia por IP Pública.**
