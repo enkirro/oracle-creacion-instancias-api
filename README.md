@@ -246,3 +246,29 @@ Elegiremos una **EPHEMERAL PUBLIC IP** y actualizaremos.
 #IMAGEN#
 
 Y de esta manera **podremos acceder a la instancia por IP Pública.**
+
+## Paso adicional - Agregar notificaciones Telegram
+
+Si queremos tener una manera de que el propio servicio nos notifique cuando tengamos la instancia creada **podremos realizarlo** si tenemos un bot de Telegram (es muy sencillo crear uno, no es necesario explicarlo)
+
+1. Crear un **fichero telegram.env** donde indicaremos el token de nuestro bot y el chatid donde queremos que el bot escriba.
+
+![Guardar variables de Telegram](/src/img/generar_telegram_env.png)
+
+2. **Copiaremos el contenido** del fichero `check_oci_log.sh` de este repositorio para tener el script listo; este script comprobará en el fichero oci.log si hay una línea con el contenido `LimitExceeded` que indicaría que nuestra instancia estaría creada.
+
+![Contenido del script](/src/img/script_notificaciones.png)
+
+3. Le **daremos permisos de ejecución al script**, ya que sino no lo podremos automatizar mediante crontab.
+
+`chmod +x check_oci_log.sh`
+
+![Dar permisos al script de ejecución](/src/img/permisos_ejecucion.png)
+
+4. Lo programaremos para que se ejecute cada 10 minutos en crontab.
+
+![Programar script de telegram](/src/img/crontab_telegram.png)
+
+5. Cuando tengamos la instancia creada el bot de Telegram nos avisará con un mensaje.
+
+![Mensaje de Telegram](/src/img/telegram_mensaje.png)
