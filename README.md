@@ -257,6 +257,10 @@ Si queremos tener una manera de que el propio servicio nos notifique cuando teng
 
 2. **Copiaremos el contenido** del fichero `check_oci_log.sh` de este repositorio para tener el script listo; este script comprobará en el fichero oci.log si hay una línea con el contenido `LimitExceeded` que indicaría que nuestra instancia estaría creada.
 
+`curl -O https://raw.githubusercontent.com/enkirro/oracle-creacion-instancias-api/refs/heads/main/check_oci_log.sh`
+
+`wget https://raw.githubusercontent.com/enkirro/oracle-creacion-instancias-api/refs/heads/main/check_oci_log.sh`
+
 ![Contenido del script](/src/img/script_notificaciones.png)
 
 3. Le **daremos permisos de ejecución al script**, ya que sino no lo podremos automatizar mediante crontab.
