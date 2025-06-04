@@ -240,11 +240,11 @@ En nuestro ejemplo, **nuestra ruta absoluta será** `/root/oci-arm-host-capacity
 
 Este apartado **no se puede hacer mediante API por los límites que tiene.**
 
-Simplemente, teniendo ya la instancia creada en Oracle, nos iremos a **Details** -> **Resources** -> **Attached VNICs**
+Simplemente, teniendo ya la instancia creada en Oracle, nos iremos a **Details** -> **Resources** -> **Attached VNICs**.
 
 ![Encontrar VNIC](/src/img/encontrar_vnic.png)
 
-Después iremos a **Resources** -> **IPv4 Addresses** -> **Edit**
+Después iremos a **Resources** -> **IPv4 Addresses** -> **Edit**.
 
 ![Editar IPV4 del VNIC](/src/img/editar_vnic_ipv4.png)
 
