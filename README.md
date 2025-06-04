@@ -1,32 +1,29 @@
-# Evitar los fallos de "Out of Capacity" de la nube de Oracle para tener una instancia/ VPS con 4vCPU y 24GB de RAM
+# Evitar los fallos de "Out of Capacity" de la nube de Oracle para tener una instancia / VPS con 4vCPU, 24GB de RAM y 200GB de almacenamiento
 
+**Nota:** Probablemente no será necesario complicarse tanto para la instancia gratuita **si la cuenta de Oracle que tienes la has actualizado a "Pay As You Go"**.
 
-**Nota importante:** Probablemente **no será necesario complicarse tanto para la instancia gratuita** si la cuenta de Oracle que tienes la has actualizado a "Pay As You Go", pero en caso de que aún así te dé fallo (o no tienes manera de insertar un método de pago válido), esta solución es ideal.
+En caso de que aún así te dé fallo (o no tienes manera de insertar un método de pago válido), esta solución es ideal.
 
-Para poder ejecutar esto es necesario tener **PHP 7.x or 8.x** y **composer** instalado en tu máquina para llamar a la API de Oracle "LaunchInstance" [endpoint](https://docs.oracle.com/en-us/iaas/api/#/en/iaas/20160918/Instance/LaunchInstance).
-
-Usaremos el paquete desarrollado por [@hitrov](https://github.com/hitrov) - [oci-api-php-request-sign](https://packagist.org/packages/hitrov/oci-api-php-request-sign).
-
-## Generar API Key
-
-Iniciaremos sesión en nuestra cuenta de [Oracle](http://cloud.oracle.com/) e iremos a la imagen de nuestro **perfil --> "User settings"**.
-
-![User Settings](/src/img/user_settings_oci.png)
-
-Iremos a **Recursos --> API Keys**, y agregaremos una nueva API Key.
-
-![Agregar nueva API Key](/src/img/agregar_api_key.png)
-
-Nos **descargamos la API Key privada y le damos a "agregar"** para que se mantenga en nuestra cuenta.
-
-![Descargar private key](/src/img/descargar_api_key_private.png)
-
-Nos aparecerá la información para poder validar la API Key (fingerprint), donde **guardaremos esta información** para utilizarla a la hora de atacar al servicio de Oracle.
-
-![Fingerprint de la API](/src/img/api_key_fingerprint.png)
-
+- [Requisitos](#requisitos)
+- [Instalación](#instalación)
+  - [Generar API Key](#generar-api-key)
+  - [Tener acceso a la private key en el servidor](#tener-acceso-a-la-private-key-en-el-servidor)
+  - [Copiar fichero de configuración](#copiar-fichero-de-configuración)
+  - [Obtener OCI_SUBNET_ID, OCI_IMAGE_ID](#obtener-oci_subnet_id-oci_image_id)
+  - [Generar claves SSH pública y privada (OCI_SSH_PUBLIC_KEYS)](#generar-claves-ssh-pública-y-privada-para-obtener-valor-oci_ssh_public_keys)
+  - [Editar fichero .env](#editar-fichero-env)
+- [Lanzar script de PHP](#lanzar-script-de-php)
+- [Programar ejecución (crontab)](#programar-ejecución-crontab)
+- [Asignar IP Pública](#asignar-ip-pública)
+  - [Acceder por SSH (Linux)](#acceder-por-ssh-linux)
+  - [Acceder por SSH (Windows)](#acceder-por-ssh-windows)
+- [Opcional - Agregar notificaciones Telegram](#opcional---agregar-notificaciones-telegram)
 
 ## Requisisitos
+
+Para poder ejecutar esto es necesario tener **PHP 8.x y composer** instalado en tu máquina para llamar a la API de Oracle "LaunchInstance" [endpoint](https://docs.oracle.com/en-us/iaas/api/#/en/iaas/20160918/Instance/LaunchInstance).
+
+Usaremos el paquete desarrollado por [@hitrov](https://github.com/hitrov) - [oci-api-php-request-sign](https://packagist.org/packages/hitrov/oci-api-php-request-sign).
 
 Lo **ideal es que la instalación la realicemos en algún entorno virtual** para simplificar el proceso y evitar posibles fallos con dependencias.
 
@@ -52,7 +49,7 @@ Nos instalaremos **composer** y **git**.
 
 ![Instalar GIT](/src/img/instalar_git.png)
 
-Y las **dependencias de PHP** que requerirá el repositorio.
+Y las **dependencias de PHP** que requerirá el repositorio, en este caso ya usando PHP 8.
 
 `apt update && apt install php8.2-curl php8.2-xml php8.2-dom php8.2-simplexml -y`
 
@@ -87,7 +84,25 @@ Y finalmente **actualizaremos el composer**.
 
 ![Actualizar composer](/src/img/composer_actualizar.png)
 
-### Tener la private key en el servidor
+### Generar API Key
+
+Iniciaremos sesión en nuestra cuenta de [Oracle](http://cloud.oracle.com/) e iremos a la imagen de nuestro **perfil --> "User settings"**.
+
+![User Settings](/src/img/user_settings_oci.png)
+
+Iremos a **Recursos --> API Keys**, y agregaremos una nueva API Key.
+
+![Agregar nueva API Key](/src/img/agregar_api_key.png)
+
+Nos **descargamos la API Key privada y le damos a "agregar"** para que se mantenga en nuestra cuenta.
+
+![Descargar private key](/src/img/descargar_api_key_private.png)
+
+Nos aparecerá la información para poder validar la API Key (fingerprint), donde **guardaremos esta información** para utilizarla a la hora de atacar al servicio de Oracle.
+
+![Fingerprint de la API](/src/img/api_key_fingerprint.png)
+
+### Tener acceso a la private key en el servidor
 
 Será necesario que la "private key" que hemos generado antes **esté accesible por el servidor**, ya que con ella es con quién podremos realizar la petición por API.
 
@@ -95,7 +110,9 @@ En mi caso antes, **este fichero** era el que me descargué con el siguiente nom
 
 `oracle@enrico.es_2025-05-17T16_17_41.921Z.pem`
 
-Lo que haré **será dejarlo en el servidor de Debian**, en la misma carpeta donde estamos trabajando, **cambiándole el nombre** a algo más sencillo.
+Lo que haré **será dejarlo en el servidor de Debian usando [WinSCP](https://winscp.net/eng/docs/lang:es)**.
+
+Lo dejaremos en la misma carpeta donde estamos trabajando, **cambiándole el nombre** a algo más sencillo.
 
 `mv oracle@enrico.es_2025-05-17T16_17_41.921Z.pem enrico.es_private.pem`
 
@@ -111,7 +128,7 @@ cp .env.example .env
 
 ![Clonar fichero de configuración](/src/img/clonar_fichero_env.png)
 
-#### Obtener OCI_SUBNET_ID, OCI_IMAGE_ID, 
+### Obtener OCI_SUBNET_ID, OCI_IMAGE_ID
 
 Estos dos valores ahora mismo **no los tendríamos localizados**, y eso es algo que se ha de conseguir de la siguiene manera:
 
@@ -158,8 +175,7 @@ Estos dos valores ahora mismo **no los tendríamos localizados**, y eso es algo 
 ![imageID valor](/src/img/imageId.png)
 ![availabilityDomain valor](/src/img/availabilityDomain.png)
 
-
-#### Generar claves SSH pública y privada (para obtener valor OCI_SSH_PUBLIC_KEYS)
+### Generar claves SSH pública y privada (para obtener valor OCI_SSH_PUBLIC_KEYS)
 
 Para poder acceder a la instancia una vez creada, **será necesario que tengamos unas claves SSH pública y privada para poder acceder a él por SSH.**
 
@@ -169,13 +185,13 @@ Por ello, **generaremos estos ficheros** con el siguiente comando.
 
 ![Generar claves SSH](/src/img/generar_claves_ssh.png)
 
-Y **guardaremos el valor de la clave pública** para usarla en la variable OCI_SSH_PUBLIC_KEYS.
+Y **guardaremos el valor de la clave pública** para usarla en la variable **OCI_SSH_PUBLIC_KEYS.**
 
 `cat ~/.ssh/id_rsa.pub`
 
 ![Guardar clave pública](/src/img/guardar_clave_publica.png)
 
-#### Editar fichero .env
+### Editar fichero .env
 
 Ya con todas las variables obtenidas, **simplemente editaremos el fichero .env** rellenándo las siguienes variables:
 
@@ -194,15 +210,15 @@ Ya con todas las variables obtenidas, **simplemente editaremos el fichero .env**
 
 ![Disco de 200GB](src/img/disco_200GB.png)
 
-### Lanzar el script de PHP
+## Lanzar script de PHP
 
-Ya con todo generado, simplemente **lanzaremos el script de php con la siguiente línea**, el cuál probablemente nos dará un error de "Out of host capacity", indicándo que la petición API es correcta.
+Ya con todo generado, simplemente **lanzaremos el script de php con la siguiente línea**, el cuál probablemente nos dará un error de "Out of host capacity". Eso significará que la petición API es correcta.
 
 `php ./index.php`
 
 ![Petición API](/src/img/peticion_php_api.png)
 
-### Programar ejecución
+## Programar ejecución (crontab)
 
 Ya teniendo este script configurado y validado que funcionaría, **solo quedaría dejar programado la ejecución de este script** para que lo reintente cada x minutos.
 
@@ -220,23 +236,27 @@ En nuestro ejemplo, **nuestra ruta absoluta será** `/root/oci-arm-host-capacity
 
 ![Crear logs y ruta](/src/img/crear_log_y_ruta.png)
 
-3. **Editaremos crontab para que cada minuto se lance este script** y se guarde el resultado en el ficher de log.
+3. **Editaremos crontab para que cada 5 minutos se lance este script** y se guarde el resultado en el fichero de log.
 
 `crontab -e`
 
 4. **Agregaremos la siguiente línea**, utilizando las rutas absolutas para evitar problemas.
 
-`* * * * * /usr/bin/php /root/oci-arm-host-capacity/index.php >> /root/oci-arm-host-capacity/oci.log`
+`*/5 * * * * /usr/bin/php /root/oci-arm-host-capacity/index.php >> /root/oci-arm-host-capacity/oci.log`
 
 ![Configuración Crontab](/src/img/configurar_crontab.png)
 
-5. Estaría todo listo, **simplemente a esperar** hasta que nos diesen la instancia. 🙂
+5. Estaría todo listo, **simplemente a esperar** hasta que nos diesen la instancia.
+
+6. Sabremos que nos han dado la instancia cuando en el log aparezca un mensaje que empiece por **"Already have an instance(s) [instance-YYYYMMDD-hhmm] in state(s) (respectively) [RUNNING]"**
+
+![LOG correcto](/src/img/log_correcto.png)
 
 6. La instancia **nos la darán con un nombre generado con la fecha de creación** (instance-20250601-1735) en mi caso.
 
 ![Instancia creada](/src/img/instancia_creada.png)
 
-## Pasos posteriores - Asignar IP Pública
+## Asignar IP Pública
 
 Este apartado **no se puede hacer mediante API por los límites que tiene.**
 
@@ -256,15 +276,55 @@ Y se **nos quedará la IP Pública ya visible** y asignada.
 
 ![IP pública asignada](/src/img/ip_publica_asignada.png)
 
-Y de esta manera **podremos acceder a la instancia por IP Pública.** Haremos la prueba desde el propio equipo donde generamos las claves SSH, por simplicidad.
+### Acceder por SSH (Linux)
+
+De esta manera **podremos acceder a la instancia por IP Pública.**
+
+Haremos la prueba desde el propio equipo donde generamos las claves SSH, por simplicidad.
 
 `ssh -i ~/.ssh/id_rsa ubuntu@143.47.57.156`
 
 ![Acceso SSH](/src/img/comprobar_acceso_ssh.png)
 
-#### PENDIENTE FINAL, GENERAR ACCESO POR PUTTY WINDOWS
+### Acceder por SSH (Windows)
 
-## Paso adicional - Agregar notificaciones Telegram
+Para poder accede por Windows haremos uso de [PuTTY](https://www.putty.org/), pero para ello tendremos que hacer varios pasos:
+
+1. Tendremos que **copiar la clave privada (y pública) para descargarlas en nuestro equipo Windows**, la exportaremos en dos ficheros.
+
+`cp ~/.ssh/id_rsa ./ssh_vps` --> Clave privada
+
+`cp ~/.ssh/id_rsa.pub ./ssh_vps.pub` --> Clave pública
+
+![Copiar claves SSH](/src/img/copiar_claves_ssh.png)
+
+2. **Entraremos por WinSCP para descargarnos estos ficheros** a nuestra máquina Windows.
+
+![Traspasar claves por WinSCP](/src/img/traspasar_claves_ssh.png)
+
+3. Con PuTTY ya instalado, **abriremos PuTTYgen** e iremos a "Load existing key file". Seleccionaremos nuestro fichero con la clave privada.
+
+![Generar clave PuTTY](/src/img/generar_clave_putty.png)
+
+4. Tras esto, ya **podremos guardar la clave privada** en el formato de PuTTY.
+
+![Guardar clave PuTTY](/src/img/guardar_clave_putty.png)
+
+5. Abriremos PuTTY e iremos a **Connection --> SSH --> Auth --> Credentials** donde indicaremos el fichero que acabamos de generar.
+
+![Auth clave SSH PuTTY](/src/img/seleccionar_clave_putty.png)
+
+6. Ya con esto, en **Sessions** indicaremos la IP Pública de la instancia y **nos conectaremos**.
+
+![Conectar Putty](/src/img/conectar_putty.png)
+
+7. Iniciaremos con el **usuario "ubuntu"** y ya estaríamos dentro de la instancia de Oracle
+
+![Acceso PuTTY OK](/src/img/acceso_por_putty.png)
+
+Aquí podemos comprobar que el equipo **tiene 4 vCPU, 24GB de RAM y 50GB de disco duro** (ya que no guardé bien la variable que la aumenta a 200GB cuando la creé...)
+
+## Opcional - Agregar notificaciones Telegram
 
 Si queremos tener una manera de que el propio servicio nos notifique cuando tengamos la instancia creada **podremos realizarlo** si tenemos un bot de Telegram (es muy sencillo crear uno, no es necesario explicarlo)
 
@@ -272,9 +332,11 @@ Si queremos tener una manera de que el propio servicio nos notifique cuando teng
 
 ![Guardar variables de Telegram](/src/img/generar_telegram_env.png)
 
-2. **Copiaremos el contenido** del fichero `check_oci_log.sh` de este repositorio para tener el script listo; este script comprobará en el fichero oci.log si hay una línea con el contenido `Already have an instance(s)` que indicaría que nuestra instancia estaría creada.
+2. **Copiaremos el contenido** del fichero `check_oci_log.sh` de este repositorio para tener el script listo.
 
 `curl -O https://raw.githubusercontent.com/enkirro/oracle-creacion-instancias-api/refs/heads/main/check_oci_log.sh`
+
+Este script **comprobará en el fichero oci.log** si hay una línea con el contenido `Already have an instance(s)` que indicaría que nuestra instancia estaría creada.
 
 3. Le **daremos permisos de ejecución al script**, ya que sino no lo podremos automatizar mediante crontab.
 
@@ -282,10 +344,10 @@ Si queremos tener una manera de que el propio servicio nos notifique cuando teng
 
 ![Dar permisos al script de ejecución](/src/img/permisos_ejecucion.png)
 
-4. Lo programaremos para que se ejecute cada 10 minutos en crontab.
+4. Lo programaremos **para que se ejecute cada 10 minutos** en crontab.
 
 ![Programar script de telegram](/src/img/crontab_telegram.png)
 
-5. Cuando tengamos la instancia creada el bot de Telegram nos avisará con un mensaje.
+5. Cuando tengamos la instancia creada el bot de Telegram **nos avisará** con un mensaje.
 
 ![Mensaje de Telegram](/src/img/telegram_mensaje.png)
