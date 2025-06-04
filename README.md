@@ -188,8 +188,11 @@ Ya con todas las variables obtenidas, **simplemente editaremos el fichero .env**
 - **OCI_IMAGE_ID** --> Obtenido de la petición por web con cURL.
 - **OCI_AVAILABILITY_DOMAIN** --> Obtenido de la petición por web con cURL.
 - **OCI_SSH_PUBLIC_KEY** --> Obtenido al generar nuestros certificados SSH.
+- **OCI_BOOT_VOLUME_SIZE_IN_GBS** --> Indicaremos el tamaño máximo del disco que entra en always free (**200GB**).-
 
 ![Fichero .env rellenado](/src/img/fichero_env_rellenado.png)
+
+![Disco de 200GB](src/img/disco_200GB.png)
 
 ### Lanzar el script de PHP
 
@@ -229,23 +232,37 @@ En nuestro ejemplo, **nuestra ruta absoluta será** `/root/oci-arm-host-capacity
 
 5. Estaría todo listo, **simplemente a esperar** hasta que nos diesen la instancia. 🙂
 
+6. La instancia **nos la darán con un nombre generado con la fecha de creación** (instance-20250601-1735) en mi caso.
+
+![Instancia creada](/src/img/instancia_creada.png)
+
 ## Pasos posteriores - Asignar IP Pública
 
 Este apartado **no se puede hacer mediante API por los límites que tiene.**
 
 Simplemente, teniendo ya la instancia creada en Oracle, nos iremos a **Details** -> **Resources** -> **Attached VNICs**
 
-#IMAGEN#
+![Encontrar VNIC](/src/img/encontrar_vnic.png)
 
 Después iremos a **Resources** -> **IPv4 Addresses** -> **Edit**
 
-#IMAGEN#
+![Editar IPV4 del VNIC](/src/img/editar_vnic_ipv4.png)
 
 Elegiremos una **EPHEMERAL PUBLIC IP** y actualizaremos.
 
-#IMAGEN#
+![Asignar IPv4 Pública](/src/img/vnic_asignar_publicip.png)
 
-Y de esta manera **podremos acceder a la instancia por IP Pública.**
+Y se **nos quedará la IP Pública ya visible** y asignada.
+
+![IP pública asignada](/src/img/ip_publica_asignada.png)
+
+Y de esta manera **podremos acceder a la instancia por IP Pública.** Haremos la prueba desde el propio equipo donde generamos las claves SSH, por simplicidad.
+
+`ssh -i ~/.ssh/id_rsa ubuntu@143.47.57.156`
+
+![Acceso SSH](/src/img/comprobar_acceso_ssh.png)
+
+#### PENDIENTE FINAL, GENERAR ACCESO POR PUTTY WINDOWS
 
 ## Paso adicional - Agregar notificaciones Telegram
 
@@ -255,13 +272,9 @@ Si queremos tener una manera de que el propio servicio nos notifique cuando teng
 
 ![Guardar variables de Telegram](/src/img/generar_telegram_env.png)
 
-2. **Copiaremos el contenido** del fichero `check_oci_log.sh` de este repositorio para tener el script listo; este script comprobará en el fichero oci.log si hay una línea con el contenido `LimitExceeded` que indicaría que nuestra instancia estaría creada.
+2. **Copiaremos el contenido** del fichero `check_oci_log.sh` de este repositorio para tener el script listo; este script comprobará en el fichero oci.log si hay una línea con el contenido `Already have an instance(s)` que indicaría que nuestra instancia estaría creada.
 
 `curl -O https://raw.githubusercontent.com/enkirro/oracle-creacion-instancias-api/refs/heads/main/check_oci_log.sh`
-
-`wget https://raw.githubusercontent.com/enkirro/oracle-creacion-instancias-api/refs/heads/main/check_oci_log.sh`
-
-![Contenido del script](/src/img/script_notificaciones.png)
 
 3. Le **daremos permisos de ejecución al script**, ya que sino no lo podremos automatizar mediante crontab.
 
